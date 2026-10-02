@@ -1,0 +1,34 @@
+# Prometheus + Grafana for the Orin box: Jetson health plus per-project dashboards.
+# host networking so Prometheus can scrape the jtop exporter (:9101) and project servers (vLLM :8000) on localhost.
+# Expects the repo layout on the Jetson: ~/ai-stuff/{orin,llm-serving}/
+services:
+  prometheus:
+    image: prom/prometheus:latest
+    network_mode: host
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=15d
+      - --storage.tsdb.retention.size=2GB
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+
+  grafana:
+    image: grafana/grafana:latest
+    network_mode: host            # UI on :3000
+    restart: unless-stopped
+    env_file: .env                # GF_SECURITY_ADMIN_PASSWORD (not committed)
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"         # LAN viewers can see dashboards without login
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/llm-serving/orin-llm-overview.json
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards/orin:ro
+      - ../../llm-serving/orin/grafana-dashboards:/var/lib/grafana/dashboards/llm-serving:ro
+      - grafana-data:/var/lib/grafana
+
+volumes:
+  prometheus-data:
+  grafana-data:

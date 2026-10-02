@@ -1,0 +1,14 @@
+global:
+  scrape_interval: 5s
+  evaluation_interval: 5s
+
+scrape_configs:
+  # Box health
+  - job_name: jetson            # jtop exporter: GPU, EMC, power, temps, CPU, RAM
+    static_configs:
+      - targets: ['localhost:9101']
+
+  # Projects
+  - job_name: vllm              # llm-serving: vLLM OpenAI server /metrics
+    static_configs:
+      - targets: ['localhost:8000']

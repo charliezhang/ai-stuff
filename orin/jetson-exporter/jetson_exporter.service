@@ -1,0 +1,18 @@
+# Adapted from pgodlews/jetson-orin-exporter: runs from this repo as root
+# (needed to read the EMC activity monitor in debugfs) instead of a dedicated user.
+[Unit]
+Description=Prometheus Jetson Stats Exporter (jtop) on :9101
+After=network.target jtop.service
+Requires=jtop.service
+
+[Service]
+Type=simple
+User=root
+Group=jtop
+ExecStart=/usr/bin/python3 /home/zx/ai-stuff/orin/jetson-exporter/jetson_exporter.py
+Restart=on-failure
+RestartSec=10s
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target

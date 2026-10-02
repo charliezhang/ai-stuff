@@ -1,0 +1,14 @@
+apiVersion: 1
+providers:
+  # Box health (this directory)
+  - name: orin
+    folder: Orin box
+    type: file
+    options:
+      path: /var/lib/grafana/dashboards/orin
+  # Per-project dashboards, mounted from <project>/orin/grafana-dashboards (see docker-compose.yml)
+  - name: llm-serving
+    folder: LLM serving
+    type: file
+    options:
+      path: /var/lib/grafana/dashboards/llm-serving
