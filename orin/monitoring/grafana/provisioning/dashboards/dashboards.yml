@@ -12,3 +12,8 @@ providers:
     type: file
     options:
       path: /var/lib/grafana/dashboards/llm-serving
+  - name: local-tts
+    folder: Local TTS
+    type: file
+    options:
+      path: /var/lib/grafana/dashboards/local-tts

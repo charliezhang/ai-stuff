@@ -27,6 +27,7 @@ services:
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
       - ./grafana/dashboards:/var/lib/grafana/dashboards/orin:ro
       - ../../llm-serving/orin/grafana-dashboards:/var/lib/grafana/dashboards/llm-serving:ro
+      - ../../local-tts/orin/grafana-dashboards:/var/lib/grafana/dashboards/local-tts:ro
       - grafana-data:/var/lib/grafana
 
 volumes:

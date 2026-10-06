@@ -12,3 +12,7 @@ scrape_configs:
   - job_name: vllm              # llm-serving: vLLM OpenAI server /metrics
     static_configs:
       - targets: ['localhost:8000']
+  - job_name: tts               # local-tts: Qwen3-TTS server /metrics (FastAPI mount -> trailing slash)
+    metrics_path: /metrics/
+    static_configs:
+      - targets: ['localhost:7860']
