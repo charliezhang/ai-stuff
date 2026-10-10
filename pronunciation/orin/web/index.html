@@ -17,6 +17,7 @@
   .sub { color: var(--muted); margin: 0 0 16px; font-size: 13px; }
   .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; }
   .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  select.model { width: auto; padding: 8px 10px; font-size: 13px; }
   select, input[type=text] { width: 100%; background: #0f1013; color: var(--text); border: 1px solid var(--line);
          border-radius: 10px; padding: 10px 12px; font-size: 15px; }
   label.small { display: block; font-size: 12px; color: var(--muted); margin: 10px 0 4px; }
@@ -83,6 +84,7 @@
         <button data-l="en">English</button><button data-l="zh">中文</button><button data-l="es">Español</button>
       </div>
       <button class="ghost" id="listen">🔊 Native example</button>
+      <select id="model" class="model" aria-label="Recognition model" title="Phoneme recognizer used for scoring"></select>
       <span class="focus" id="focus"></span>
     </div>
   </div>
@@ -110,10 +112,15 @@
 const $ = id => document.getElementById(id);
 const COLORS = s => s >= 80 ? "--good" : s >= 65 ? "--ok" : s >= 45 ? "--warn" : "--bad";
 const col = s => getComputedStyle(document.documentElement).getPropertyValue(COLORS(s)).trim();
-let SENTENCES = [], lang = "en", words = [];
+let SENTENCES = [], lang = "en", words = [], model = "";
 let rec = null;            // {ctx, stream, ws, node, analyser, raf, silentSince, complete}
 
 // ---------------------------------------------------------------- sentence + words
+async function loadModels() {
+  const m = await (await fetch("/api/models")).json();
+  $("model").innerHTML = m.models.map(x => `<option value="${x.id}">Model: ${esc(x.label)}</option>`).join("");
+  model = m.default; $("model").value = model;
+}
 async function loadSentences() {
   SENTENCES = await (await fetch("/api/sentences")).json();
   const name = {en: "English", zh: "中文", es: "Español"};
@@ -134,7 +141,7 @@ async function layoutWords() {
   clearTimeout(layoutTimer);
   layoutTimer = setTimeout(async () => {
     const t = $("text").value.trim();
-    words = t ? await (await fetch(`/api/words?text=${encodeURIComponent(t)}&lang=${lang}`)).json() : [];
+    words = t ? await (await fetch(`/api/words?text=${encodeURIComponent(t)}&lang=${lang}&model=${model}`)).json() : [];
     $("sentence").innerHTML = words.map((w, i) =>
       `<div class="chip" id="w${i}"><div class="w">${esc(w.word)}</div><div class="ipa">/${esc(w.phones.join(" "))}/</div><div class="s"></div></div>`).join("");
     $("scores").innerHTML = ""; $("details").hidden = true;
@@ -167,7 +174,7 @@ function paintFinal(r) {
       <td>${fb}</td><td style="color:var(--muted)">${p.tone_score == null ? "" : Math.round(p.tone_score)}</td></tr>`);
   }));
   $("phones").innerHTML = `<tr><th>word</th><th>phoneme</th><th>score</th><th>feedback</th><th>tone (exp.)</th></tr>` + rows.join("");
-  $("debug").textContent = `heard: ${r.heard}  ·  ${r.duration_s}s audio · scored in ${r.elapsed_ms} ms`;
+  $("debug").textContent = `model: ${$("model").selectedOptions[0].text.replace("Model: ", "")}  ·  heard: ${r.heard}  ·  ${r.duration_s}s audio · scored in ${r.elapsed_ms} ms`;
   $("details").hidden = false;
 }
 
@@ -194,7 +201,7 @@ async function start() {
   const analyser = ctx.createAnalyser(); analyser.fftSize = 1024;
   src.connect(analyser); src.connect(node);
   const proto = location.protocol === "https:" ? "wss" : "ws";
-  const ws = new WebSocket(`${proto}://${location.host}/ws/score?text=${encodeURIComponent($("text").value)}&lang=${lang}`);
+  const ws = new WebSocket(`${proto}://${location.host}/ws/score?text=${encodeURIComponent($("text").value)}&lang=${lang}&model=${model}`);
   ws.binaryType = "arraybuffer";
   rec = {ctx, stream, ws, node, analyser, buf: [], bufLen: 0, silentSince: 0, spoke: false, complete: false, t0: performance.now()};
 
@@ -262,6 +269,7 @@ function drawWave() {
 
 // ---------------------------------------------------------------- wiring
 $("pick").onchange = e => choose(+e.target.value);
+$("model").onchange = e => { if (rec) return; model = e.target.value; layoutWords(); };
 $("text").oninput = layoutWords;
 document.querySelectorAll("#lang button").forEach(b => b.onclick = () => setLang(b.dataset.l));
 $("speak").onclick = () => { if ($("speak").classList.contains("busy")) return; rec ? stop() : start(); };
@@ -278,7 +286,7 @@ $("listen").onclick = async () => {
 document.addEventListener("keydown", e => {                          // space bar = speak button
   if (e.code === "Space" && document.activeElement.tagName !== "INPUT") { e.preventDefault(); $("speak").click(); }
 });
-loadSentences();
+loadModels().then(loadSentences);
 </script>
 </body>
 </html>

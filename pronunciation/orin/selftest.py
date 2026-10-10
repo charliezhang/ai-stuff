@@ -5,7 +5,7 @@
   swap-word   TTS says X with one word changed, scored against X     -> that word low, others high
   mismatch    TTS says sentence Y, scored against X (same language)  -> should be low (< 30)
 
-Usage (inside pron:orin, network host):  python3 selftest.py --model /hf/.../snapshots/<rev>
+Usage (inside pron:orin, network host):  python3 selftest.py --backend w2v|powsm [--only en3,zh2]
 """
 import argparse
 import io
@@ -16,7 +16,7 @@ import librosa
 import numpy as np
 import soundfile as sf
 
-from scorer import PronunciationScorer
+import scorer as S
 
 VOICE = {"en": ("Aiden", "English"), "zh": ("Vivian", "Chinese"), "es": ("Serena", "Spanish")}
 SWAPS = {"en3": ("cat", "bat"), "en4": ("Three", "Tree"), "zh2": ("苹果", "香蕉"), "es2": ("perro", "pero")}
@@ -38,10 +38,10 @@ def show(tag, r):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--model", required=True)
+    ap.add_argument("--backend", default="w2v", choices=list(S.BACKENDS))
     ap.add_argument("--only", default="", help="comma list of sentence ids")
     args = ap.parse_args()
-    sc = PronunciationScorer(args.model)
+    sc = S.load(args.backend)
     sents = json.load(open("sentences.json"))
     by_lang = {}
     for s in sents:

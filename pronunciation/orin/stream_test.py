@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Simulate a speaker on the streaming endpoint: send TTS audio in real time, print partials + final.
 
-Usage (inside pron:orin, network host): python3 stream_test.py "The cat is sleeping on the chair." en
+Usage (inside pron:orin, network host): python3 stream_test.py "The cat is sleeping on the chair." en [w2v|powsm]
 """
 import asyncio
 import io
@@ -17,6 +17,7 @@ import soundfile as sf
 import websockets
 
 text, lang = sys.argv[1], sys.argv[2]
+model = sys.argv[3] if len(sys.argv) > 3 else "w2v"
 body = json.dumps({"text": text, "lang": lang}).encode()
 wav = urllib.request.urlopen(urllib.request.Request("http://localhost:7861/api/tts", body,
                                                     {"Content-Type": "application/json"})).read()
@@ -27,7 +28,7 @@ pcm = (np.clip(a, -1, 1) * 32767).astype(np.int16)
 
 
 async def main():
-    url = f"ws://localhost:7861/ws/score?text={urllib.parse.quote(text)}&lang={lang}"
+    url = f"ws://localhost:7861/ws/score?text={urllib.parse.quote(text)}&lang={lang}&model={model}"
     async with websockets.connect(url) as ws:
         t0 = time.time()
 

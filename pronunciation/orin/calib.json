@@ -1,20 +1,42 @@
 {
-  "en": {
-    "bias": -0.914,
-    "temp": 2.0,
-    "median_native_gop": 3.48,
-    "n_phones": 309
+  "w2v": {
+    "en": {
+      "bias": -0.914,
+      "temp": 2.0,
+      "median_native_gop": 3.48,
+      "n_phones": 309
+    },
+    "zh": {
+      "bias": -3.834,
+      "temp": 2.0,
+      "median_native_gop": 0.56,
+      "n_phones": 249
+    },
+    "es": {
+      "bias": -0.594,
+      "temp": 2.0,
+      "median_native_gop": 3.8,
+      "n_phones": 267
+    }
   },
-  "zh": {
-    "bias": -3.834,
-    "temp": 2.0,
-    "median_native_gop": 0.56,
-    "n_phones": 249
-  },
-  "es": {
-    "bias": -0.594,
-    "temp": 2.0,
-    "median_native_gop": 3.8,
-    "n_phones": 267
+  "powsm": {
+    "en": {
+      "bias": 4.161,
+      "temp": 2.0,
+      "median_native_gop": 8.555,
+      "n_phones": 348
+    },
+    "zh": {
+      "bias": -0.424,
+      "temp": 2.0,
+      "median_native_gop": 3.97,
+      "n_phones": 312
+    },
+    "es": {
+      "bias": 1.696,
+      "temp": 2.0,
+      "median_native_gop": 6.09,
+      "n_phones": 273
+    }
   }
 }

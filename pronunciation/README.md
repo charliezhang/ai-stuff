@@ -15,7 +15,7 @@ the learner reads a known sentence; every **phoneme, word and the sentence** get
 
 **Run it**
 ```bash
-ssh orin ~/ai-stuff/pronunciation/orin/serve-pron.sh       # (re)start, ready in ~20 s
+ssh orin ~/ai-stuff/pronunciation/orin/serve-pron.sh       # (re)start both models, ready in ~40 s (MODELS=w2v for one)
 ssh -N -L 7861:localhost:7861 orin                         # browsers only allow the mic on https/localhost
 open http://localhost:7861                                 # allow microphone access when asked
 ```
@@ -62,6 +62,33 @@ Substitution candidates = the 48 phonemes with most posterior mass in the record
   did not separate right from wrong audio. A dedicated tone model is needed.
 - **Calibration** (`calibrate.py` → `calib.json`): median native GOP is +3.5 (en), +3.8 (es), only +0.6 (zh)
   — the recognizer is much weaker in Mandarin. Bias per language maps native median → 90.
+
+## Models (UI dropdown)
+
+| | wav2vec2-XLSR-53 eSpeak (`w2v`, default) | POWSM-CTC (`powsm`) |
+|---|---|---|
+| Source | facebook/wav2vec2-xlsr-53-espeak-cv-ft (2021) | espnet/powsm_ctc (2026, POWSM/PRiSM papers) |
+| Size on Orin | 316M params, 1.26 GB GPU | 426M params, 1.70 GB GPU |
+| License | Apache-2.0 | CC-BY-4.0 (commercial OK) |
+| Training labels | eSpeak IPA (Common Voice) → eSpeak phonemes used 1:1 | IPAPack++ (17k h); eSpeak mapped to its segments (`POWSMBackend.units`) |
+| Mandarin tones | weak tone digits → experimental tone score | none emitted → segments only |
+| Median GOP, native TTS (en / zh / es) | +3.5 / +0.6 / +3.8 | **+8.6 / +4.0 / +6.1** |
+| Scoring pass | ~85 ms | ~350 ms (20 s padded input) |
+
+POWSM integration notes (each was a measured problem):
+- **Language prompt** `<eng>/<cmn>/<spa>` is required (with `<unk>` it guessed German).
+- **Pad to 20 s** (training condition): single words "Hello"/"Hola" went 13→74 / 7→64.
+- **Prompt tokens** `<lang> <pr> <notimestamps> ▁` are emitted in the first 4 frames (160 ms) and are part
+  of every CTC target; 0.3 s of leading silence keeps them from crowding out the first word.
+- **Infeasible alignments**: 40 ms frames mean a long target can't fit a short clip; CTC must return
+  −inf (not `zero_infinity`, and `torch.nan_to_num` must keep −inf) — otherwise wrong audio scored a flat 36.
+- ESPnet's BPE model path is relative and loaded lazily — made absolute after init.
+
+Self-test comparison (TTS as speaker, so each run is a *different* random sample — noisy):
+POWSM separates **wrong Mandarin** audio much better (7–17 vs 19–48) and is near-perfect on wrong
+EN/ES sentences; w2v is currently better at **single-phoneme swaps** in EN/ES (cat→bat, perro→pero) and
+scores native EN/ES higher. A real verdict needs a fixed recording set with human scores (speechocean762,
+own recordings) — next step.
 
 ## Self-test (TTS as the speaker; `selftest.py`)
 

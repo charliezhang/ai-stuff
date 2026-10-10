@@ -19,6 +19,11 @@ ENV PHONEMIZER_ESPEAK_LIBRARY=/usr/local/lib/libespeak-ng.so
 RUN pip install --no-cache-dir --no-deps phonemizer segments dlinfo csvw clldutils colorlog isodate \
       rfc3986 uritemplate language-tags pypinyin \
  && python3 -c "from phonemizer.backend import EspeakBackend as E; print(E('cmn').phonemize(['我喜欢吃苹果'])); import torch; assert torch.version.cuda"
+# ESPnet for POWSM-CTC (espnet/powsm_ctc). --no-deps again; flash_attn can't build on Jetson and ESPnet
+# falls back to its own attention ("Failed to import Flash Attention, using ESPnet default").
+RUN pip install --no-cache-dir --no-deps espnet==202610.post2 espnet_model_zoo typeguard humanfriendly omniio \
+ && python3 -c "from espnet2.bin.s2t_inference_ctc import Speech2Text; import torch; assert torch.version.cuda; print('espnet ok')"
+
 WORKDIR /app
 ENTRYPOINT []
 CMD ["bash"]

@@ -3,8 +3,9 @@
 
   GET  /                 single-page UI (web/index.html): one big speak button + live waveform
   GET  /api/sentences    practice sentences
+  GET  /api/models       available recognizer backends (UI model selector)
   POST /api/tts          native example via the local TTS server (:7860)
-  WS   /ws/score         stream 16 kHz int16 PCM; server re-scores the audio so far every ~0.5 s
+  WS   /ws/score         ?text=&lang=&model=  stream 16 kHz int16 PCM; re-scores the audio so far every ~0.5 s
                          -> {"type":"partial", ...}  words scored as the learner reaches them
                          <- text "end" -> {"type":"final", ...} full-sentence result
 
@@ -24,7 +25,7 @@ from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel
 
-from scorer import PronunciationScorer
+import scorer as S
 
 HERE = Path(__file__).parent
 SENTENCES = json.loads((HERE / "sentences.json").read_text())
@@ -34,7 +35,15 @@ PARTIAL_EVERY_S = 0.5           # re-score cadence while speaking
 MAX_SECONDS = 30
 
 app = FastAPI(title="pronunciation-coach")
-scorer: PronunciationScorer = None
+SCORERS: dict[str, S.PronunciationScorer] = {}      # both backends loaded at startup (~3 GB GPU total)
+DEFAULT_MODEL = "w2v"
+
+
+def get_scorer(model: str | None) -> S.PronunciationScorer:
+    sc = SCORERS.get(model or DEFAULT_MODEL)
+    if sc is None:
+        raise HTTPException(400, f"model must be one of {list(SCORERS)}")
+    return sc
 gpu = asyncio.Lock()            # one GPU job at a time; scoring runs in a worker thread
 
 
@@ -48,12 +57,18 @@ def sentences():
     return SENTENCES
 
 
+@app.get("/api/models")
+def models():
+    return {"default": DEFAULT_MODEL,
+            "models": [{"id": k, "label": sc.b.label, "tonal": sc.b.tonal} for k, sc in SCORERS.items()]}
+
+
 @app.get("/api/words")
-def words(text: str, lang: str):
-    """Canonical words + phonemes, so the UI can lay out word chips before scoring starts."""
+def words(text: str, lang: str, model: str | None = None):
+    """Canonical words + phonemes (in the selected model's phone inventory) for the word chips."""
     if lang not in ("en", "zh", "es"):
         raise HTTPException(400, "lang must be en, zh or es")
-    return [{"word": w, "phones": ph} for w, ph in scorer.g2p(text, lang)]
+    return [{"word": w, "phones": ph} for w, ph in get_scorer(model).g2p(text, lang)]
 
 
 class TTSReq(BaseModel):
@@ -85,7 +100,8 @@ async def run_scoring(fn, *args):
 async def ws_score(ws: WebSocket):
     await ws.accept()
     text, lang = ws.query_params.get("text", ""), ws.query_params.get("lang", "en")
-    if not text.strip() or lang not in ("en", "zh", "es"):
+    scorer = SCORERS.get(ws.query_params.get("model") or DEFAULT_MODEL)
+    if not text.strip() or lang not in ("en", "zh", "es") or scorer is None:
         await ws.close(code=1008)
         return
     chunks, last_partial, busy = [], 0.0, False
@@ -129,14 +145,18 @@ async def ws_score(ws: WebSocket):
 
 
 def main():
-    global scorer
+    global DEFAULT_MODEL
     ap = argparse.ArgumentParser()
-    ap.add_argument("--model", required=True)
+    ap.add_argument("--models", default="w2v,powsm", help="backends to load (scorer.BACKENDS)")
     ap.add_argument("--port", type=int, default=7861)
     args = ap.parse_args()
-    scorer = PronunciationScorer(args.model)
-    scorer.score(np.zeros(16000, np.float32), "hello", "en")              # warm-up (CUDA, eSpeak)
-    scorer.g2p("你好", "zh"); scorer.g2p("hola", "es")
+    for name in args.models.split(","):
+        t = time.time()
+        sc = SCORERS[name] = S.load(name)
+        sc.score(np.zeros(16000, np.float32), "hello", "en")                # warm-up (CUDA, eSpeak)
+        sc.g2p("你好", "zh"); sc.g2p("hola", "es")
+        print(f"loaded {name}: {sc.b.label} in {time.time() - t:.0f}s", flush=True)
+    DEFAULT_MODEL = args.models.split(",")[0]
     print("pronunciation demo ready", flush=True)
     uvicorn.run(app, host="0.0.0.0", port=args.port, log_level="warning")
 
