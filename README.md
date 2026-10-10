@@ -8,8 +8,9 @@ its own directory.
 |---|---|
 | [`llm-serving/`](llm-serving/README.md) | Qwen3.6-35B-A3B on vLLM, Open WebUI chat on the Mac, LLM dashboards |
 | [`local-tts/`](local-tts/README.md) | Bilingual (zh⇄en) TTS: Qwen3-TTS 1.7B + CUDA graphs, web UI + OpenAI speech API on :7860 |
+| [`pronunciation/`](pronunciation/README.md) | Pronunciation assessment (EN/ZH/ES): alignment-free CTC GOP, 1–100 per phoneme/word/sentence, UI on :7861 |
 
-Ports on the box: 8000 vLLM · 7860 TTS · 3000 Grafana · 9090 Prometheus · 9101 Jetson exporter.
+Ports on the box: 8000 vLLM · 7860 TTS · 7861 pronunciation · 3000 Grafana · 9090 Prometheus · 9101 Jetson exporter.
 
 ## Box setup (as of 2026-10-02)
 

@@ -1,0 +1,60 @@
+{"id": "zh01", "kind": "zh", "text": "今天天气很好，我们去公园散步吧。"}
+{"id": "zh02", "kind": "zh", "text": "这家餐厅的菜味道不错，就是价格有点贵。"}
+{"id": "zh03", "kind": "zh", "text": "请在下一个路口向左转，然后一直往前走。"}
+{"id": "zh04", "kind": "zh", "text": "我昨天晚上看了一部很感人的电影。"}
+{"id": "zh05", "kind": "zh", "text": "图书馆周末开放到晚上九点。"}
+{"id": "zh06", "kind": "zh", "text": "他每天早上都会去河边跑步。"}
+{"id": "zh07", "kind": "zh", "text": "这个问题比我们想象的要复杂得多。"}
+{"id": "zh08", "kind": "zh", "text": "妈妈让我回家的时候顺便买一些水果。"}
+{"id": "zh09", "kind": "zh", "text": "春天来了，路边的樱花都开了。"}
+{"id": "zh10", "kind": "zh", "text": "我们需要在周五之前完成这份报告。"}
+{"id": "zh11", "kind": "zh", "text": "火车站离这里大概有半个小时的车程。"}
+{"id": "zh12", "kind": "zh", "text": "她说话的声音很温柔，让人觉得很舒服。"}
+{"id": "zh13", "kind": "zh", "text": "科学家们正在研究一种新的治疗方法。"}
+{"id": "zh14", "kind": "zh", "text": "如果明天下雨，比赛就会推迟。"}
+{"id": "zh15", "kind": "zh", "text": "这本书讲的是一个关于勇气和友谊的故事。"}
+{"id": "zh16", "kind": "zh", "text": "请把窗户关上，外面风太大了。"}
+{"id": "zh17", "kind": "zh", "text": "他终于实现了自己多年来的梦想。"}
+{"id": "zh18", "kind": "zh", "text": "人工智能正在改变我们的工作方式。"}
+{"id": "zh19", "kind": "zh", "text": "我觉得这个方案还有很多可以改进的地方。"}
+{"id": "zh20", "kind": "zh", "text": "晚饭后我们一起去湖边看日落吧。"}
+{"id": "en01", "kind": "en", "text": "The quick brown fox jumps over the lazy dog."}
+{"id": "en02", "kind": "en", "text": "Please remember to bring your umbrella, it might rain later."}
+{"id": "en03", "kind": "en", "text": "She opened the window and let the cool morning air in."}
+{"id": "en04", "kind": "en", "text": "Our team is planning to launch the new feature next week."}
+{"id": "en05", "kind": "en", "text": "The museum was crowded with tourists from all over the world."}
+{"id": "en06", "kind": "en", "text": "I would like a cup of coffee with a little milk, please."}
+{"id": "en07", "kind": "en", "text": "He spent the whole afternoon fixing the old bicycle."}
+{"id": "en08", "kind": "en", "text": "Machine learning models need careful evaluation before deployment."}
+{"id": "en09", "kind": "en", "text": "The train to the airport leaves every fifteen minutes."}
+{"id": "en10", "kind": "en", "text": "Honestly, I think the second option makes more sense."}
+{"id": "en11", "kind": "en", "text": "The children were laughing and playing in the garden."}
+{"id": "en12", "kind": "en", "text": "Could you send me the meeting notes when you get a chance?"}
+{"id": "en13", "kind": "en", "text": "The storm knocked out power across most of the city."}
+{"id": "en14", "kind": "en", "text": "Reading before bed helps me relax after a long day."}
+{"id": "en15", "kind": "en", "text": "The chef added a pinch of salt and stirred the soup slowly."}
+{"id": "en16", "kind": "en", "text": "Small changes in the data can lead to very different results."}
+{"id": "en17", "kind": "en", "text": "We walked along the beach as the sun went down."}
+{"id": "en18", "kind": "en", "text": "The library has a quiet room on the third floor."}
+{"id": "en19", "kind": "en", "text": "Please double check the address before you submit the form."}
+{"id": "en20", "kind": "en", "text": "Every great journey begins with a single step."}
+{"id": "mx01", "kind": "mixed", "text": "我今天下午有个 meeting，要跟 product team 讨论一下 roadmap。"}
+{"id": "mx02", "kind": "mixed", "text": "这个 bug 我已经 fix 了，你可以 pull 一下最新的 code 再试试。"}
+{"id": "mx03", "kind": "mixed", "text": "Let's grab 一杯咖啡 before the 下午的会议 starts."}
+{"id": "mx04", "kind": "mixed", "text": "周末我想去看一个 movie，然后吃个 brunch。"}
+{"id": "mx05", "kind": "mixed", "text": "你能帮我 review 一下这个 design doc 吗？"}
+{"id": "mx06", "kind": "mixed", "text": "这次 project 的 deadline 是下周五，大家加油。"}
+{"id": "mx07", "kind": "mixed", "text": "我觉得这个 idea 很 interesting，可以试一试。"}
+{"id": "mx08", "kind": "mixed", "text": "他刚刚在 Slack 上给我发了一个 link。"}
+{"id": "mx09", "kind": "mixed", "text": "我们先做一个 prototype，然后再收集 feedback。"}
+{"id": "mx10", "kind": "mixed", "text": "Sorry 我今天有点 busy，明天再 call 你。"}
+{"id": "mx11", "kind": "mixed", "text": "这个 model 的 performance 比上一个版本好很多。"}
+{"id": "mx12", "kind": "mixed", "text": "我在 Amazon 上买了一个新的 keyboard。"}
+{"id": "mx13", "kind": "mixed", "text": "The weather is so nice today，我们出去走走吧。"}
+{"id": "mx14", "kind": "mixed", "text": "请把这个 file 发到我的 email 里。"}
+{"id": "mx15", "kind": "mixed", "text": "她是我们 team 里最 senior 的 engineer。"}
+{"id": "mx16", "kind": "mixed", "text": "I really like 这家店的 noodles，味道特别好。"}
+{"id": "mx17", "kind": "mixed", "text": "我们需要 schedule 一个 call 来 sync 一下进度。"}
+{"id": "mx18", "kind": "mixed", "text": "这个 feature 下个 sprint 才会 release。"}
+{"id": "mx19", "kind": "mixed", "text": "他的 presentation 做得非常 professional。"}
+{"id": "mx20", "kind": "mixed", "text": "Thank you so much，这次真的帮了我大忙。"}

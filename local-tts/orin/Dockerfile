@@ -19,7 +19,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends sox libsox-fmt-
 RUN pip install --no-cache-dir --no-deps faster-qwen3-tts==${FQT_VERSION} "qwen-tts-hf>=0.1.1.post1,<0.2" nano-parakeet \
  && pip install --no-cache-dir gradio librosa soundfile sox onnxruntime einops python-multipart \
       "huggingface-hub[oauth]==1.28.0" transformers==5.15.1 tokenizers==0.22.2 \
+      opencc-python-reimplemented \
  && python3 -c "import torch, torchaudio, faster_qwen3_tts, qwen_tts; assert torch.version.cuda, 'CPU torch!'; print('torch', torch.__version__, torch.version.cuda, 'faster_qwen3_tts ok')"
+
+# Eval checkers: FunASR for Paraformer-zh (Chinese-first ASR that keeps English words; Whisper tends to
+# translate code-switched speech). --no-deps again; umap_learn (numba, speaker clustering only) is skipped.
+RUN pip install --no-cache-dir --no-deps funasr==1.4.16 torch_complex \
+ && pip install --no-cache-dir hydra-core omegaconf kaldiio jieba jamo jaconv sentencepiece tiktoken \
+      rapidfuzz tensorboardX modelscope oss2 websockets \
+ && python3 -c "import torch, funasr; assert torch.version.cuda; print('funasr', funasr.__version__, 'ok')"
 
 # Demo UI (streaming, TTFA/RTF metrics) + OpenAI-compatible server live in the repo, not the wheel.
 RUN git clone https://github.com/andimarafioti/faster-qwen3-tts /opt/fqt && git -C /opt/fqt checkout ${FQT_COMMIT}

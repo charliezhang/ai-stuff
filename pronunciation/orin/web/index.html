@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pronunciation Coach</title>
+<style>
+  :root {
+    --bg: #111214; --card: #1b1d21; --line: #2c2f36; --text: #eceef2; --muted: #9aa0ab;
+    --accent: #f97316; --rec: #ef4444; --good: #16a34a; --ok: #65a30d; --warn: #ca8a04; --bad: #dc2626;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 15px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Noto Sans SC", sans-serif; }
+  main { max-width: 860px; margin: 0 auto; padding: 20px 16px 48px; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  .sub { color: var(--muted); margin: 0 0 16px; font-size: 13px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  select, input[type=text] { width: 100%; background: #0f1013; color: var(--text); border: 1px solid var(--line);
+         border-radius: 10px; padding: 10px 12px; font-size: 15px; }
+  label.small { display: block; font-size: 12px; color: var(--muted); margin: 10px 0 4px; }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .seg button { background: none; border: 0; color: var(--muted); padding: 8px 14px; font-size: 14px; cursor: pointer; }
+  .seg button.on { background: #2a2d34; color: var(--text); }
+  .ghost { background: #2a2d34; color: var(--text); border: 0; border-radius: 10px; padding: 9px 14px; cursor: pointer; font-size: 14px; }
+  .ghost:disabled { opacity: .5; cursor: default; }
+  .focus { color: var(--muted); font-size: 13px; margin-left: auto; }
+
+  /* sentence as word chips */
+  #sentence { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin: 26px 0 10px; min-height: 80px; }
+  .chip { text-align: center; padding: 8px 12px 6px; border-radius: 12px; border: 2px solid var(--line);
+          background: #16181c; transition: background .25s, border-color .25s, transform .25s; cursor: default; }
+  .chip .w { font-size: 26px; font-weight: 650; }
+  .chip .ipa { font: 12px/1.3 ui-monospace, Menlo, monospace; color: var(--muted); }
+  .chip .s { font-size: 13px; font-weight: 700; min-height: 17px; }
+  .chip.scored { transform: translateY(-2px); }
+  .chip.provisional { border-style: dashed; opacity: .8; }
+  .chip.active { border-color: var(--accent); }
+
+  #scores { display: flex; justify-content: center; gap: 12px; margin: 6px 0 4px; min-height: 76px; }
+  .big { text-align: center; padding: 8px 18px; border-radius: 12px; min-width: 100px; }
+  .big .n { font-size: 34px; font-weight: 750; }
+  .big .l { font-size: 12px; color: var(--muted); }
+
+  /* the giant round speak button */
+  .speakzone { display: flex; flex-direction: column; align-items: center; margin-top: 18px; }
+  #speak { width: 168px; height: 168px; border-radius: 50%; border: 0; cursor: pointer; position: relative;
+           background: radial-gradient(circle at 35% 30%, #fb923c, var(--accent)); color: #fff;
+           box-shadow: 0 10px 30px #f9731655; transition: transform .15s, background .2s; }
+  #speak:active { transform: scale(.97); }
+  #speak svg { width: 64px; height: 64px; }
+  #speak.rec { background: radial-gradient(circle at 35% 30%, #f87171, var(--rec)); box-shadow: 0 10px 30px #ef444466; }
+  #speak.rec::after { content: ""; position: absolute; inset: -10px; border-radius: 50%;
+                      border: 3px solid var(--rec); animation: pulse 1.4s ease-out infinite; }
+  #speak.busy { background: #3a3d45; box-shadow: none; cursor: progress; }
+  @keyframes pulse { from { opacity: .9; transform: scale(.95); } to { opacity: 0; transform: scale(1.25); } }
+  #wave { width: 180px; height: 36px; margin-top: 16px; visibility: hidden; }
+  #wave.on { visibility: visible; }
+  #status { margin-top: 6px; color: var(--muted); font-size: 14px; min-height: 20px; text-align: center; }
+  #status.err { color: #f87171; }
+
+  details { margin-top: 22px; }
+  summary { cursor: pointer; color: var(--muted); }
+  table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 14px; }
+  th, td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--line); }
+  th { color: var(--muted); font-weight: 500; }
+  .bar { display: inline-block; height: 8px; border-radius: 4px; vertical-align: middle; margin-right: 6px; }
+  code { font: 12px ui-monospace, Menlo, monospace; color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <h1>🗣 Pronunciation coach</h1>
+  <p class="sub">English · 中文 · Español — read the sentence aloud; every word lights up with a 1–100 score as you say it. Runs on the Jetson Orin.</p>
+
+  <div class="card">
+    <select id="pick" aria-label="Practice sentence"></select>
+    <label class="small" for="text">Text to read — edit for your own sentence</label>
+    <input id="text" type="text">
+    <div class="row" style="margin-top:10px">
+      <div class="seg" id="lang">
+        <button data-l="en">English</button><button data-l="zh">中文</button><button data-l="es">Español</button>
+      </div>
+      <button class="ghost" id="listen">🔊 Native example</button>
+      <span class="focus" id="focus"></span>
+    </div>
+  </div>
+
+  <div id="sentence"></div>
+  <div id="scores"></div>
+
+  <div class="speakzone">
+    <button id="speak" aria-label="Speak">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><path d="M12 17v4"/></svg>
+    </button>
+    <canvas id="wave" width="360" height="72"></canvas>
+    <div id="status">Tap to speak</div>
+  </div>
+
+  <details id="details" hidden>
+    <summary>Phoneme details</summary>
+    <table id="phones"></table>
+    <p><code id="debug"></code></p>
+  </details>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+const COLORS = s => s >= 80 ? "--good" : s >= 65 ? "--ok" : s >= 45 ? "--warn" : "--bad";
+const col = s => getComputedStyle(document.documentElement).getPropertyValue(COLORS(s)).trim();
+let SENTENCES = [], lang = "en", words = [];
+let rec = null;            // {ctx, stream, ws, node, analyser, raf, silentSince, complete}
+
+// ---------------------------------------------------------------- sentence + words
+async function loadSentences() {
+  SENTENCES = await (await fetch("/api/sentences")).json();
+  const name = {en: "English", zh: "中文", es: "Español"};
+  $("pick").innerHTML = SENTENCES.map((s, i) => `<option value="${i}">${name[s.lang]} · ${s.text}</option>`).join("");
+  $("pick").value = 2; choose(2);
+}
+function choose(i) {
+  const s = SENTENCES[i];
+  $("text").value = s.text; $("focus").textContent = "Focus: " + s.focus; setLang(s.lang);
+}
+function setLang(l) {
+  lang = l;
+  document.querySelectorAll("#lang button").forEach(b => b.classList.toggle("on", b.dataset.l === l));
+  layoutWords();
+}
+let layoutTimer;
+async function layoutWords() {
+  clearTimeout(layoutTimer);
+  layoutTimer = setTimeout(async () => {
+    const t = $("text").value.trim();
+    words = t ? await (await fetch(`/api/words?text=${encodeURIComponent(t)}&lang=${lang}`)).json() : [];
+    $("sentence").innerHTML = words.map((w, i) =>
+      `<div class="chip" id="w${i}"><div class="w">${esc(w.word)}</div><div class="ipa">/${esc(w.phones.join(" "))}/</div><div class="s"></div></div>`).join("");
+    $("scores").innerHTML = ""; $("details").hidden = true;
+  }, 250);
+}
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+
+function paintWords(result, final) {
+  const n = result.words.length;
+  words.forEach((_, i) => {
+    const el = $("w" + i); if (!el) return;
+    const r = result.words[i];
+    el.classList.toggle("scored", !!r);
+    el.classList.toggle("provisional", !final && r && i === n - 1);
+    el.classList.toggle("active", !final && i === n);               // the word being spoken now
+    el.style.background = r ? col(r.score) + "26" : ""; el.style.borderColor = r ? col(r.score) : "";
+    el.querySelector(".s").innerHTML = r ? `<span style="color:${col(r.score)}">${Math.round(r.score)}</span>` : "";
+  });
+}
+function paintFinal(r) {
+  paintWords(r, true);
+  const big = (n, v) => `<div class="big" style="background:${col(v)}22"><div class="n" style="color:${col(v)}">${Math.round(v)}</div><div class="l">${n}</div></div>`;
+  $("scores").innerHTML = big("Overall", r.overall) + big("Accuracy", r.accuracy) + big("Completeness", r.completeness)
+    + (r.tone != null ? `<div class="big" style="background:#ffffff0d"><div class="n" style="opacity:.55">${Math.round(r.tone)}</div><div class="l">Tone (experimental)</div></div>` : "");
+  const rows = [];
+  r.words.forEach(w => w.phones.forEach((p, i) => {
+    const fb = !p.heard ? "" : p.heard === "∅" ? "dropped" : `sounded like /${esc(p.heard)}/`;
+    rows.push(`<tr><td>${i ? "" : esc(w.word)}</td><td><code style="color:var(--text);font-size:15px">/${esc(p.phone)}/</code></td>
+      <td><span class="bar" style="width:${Math.max(p.score, 3)}px;background:${col(p.score)}"></span>${Math.round(p.score)}</td>
+      <td>${fb}</td><td style="color:var(--muted)">${p.tone_score == null ? "" : Math.round(p.tone_score)}</td></tr>`);
+  }));
+  $("phones").innerHTML = `<tr><th>word</th><th>phoneme</th><th>score</th><th>feedback</th><th>tone (exp.)</th></tr>` + rows.join("");
+  $("debug").textContent = `heard: ${r.heard}  ·  ${r.duration_s}s audio · scored in ${r.elapsed_ms} ms`;
+  $("details").hidden = false;
+}
+
+// ---------------------------------------------------------------- recording + streaming
+const WORKLET = `class Tap extends AudioWorkletProcessor {
+  process(inputs) { const ch = inputs[0][0]; if (ch) this.port.postMessage(ch.slice(0)); return true; } }
+registerProcessor("tap", Tap);`;
+
+async function start() {
+  if (!words.length) return status("Type a sentence first.", true);
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({audio: {channelCount: 1, echoCancellation: true, noiseSuppression: true}});
+  } catch (e) {
+    return status(e.name === "NotFoundError" ? "No microphone found — check System Settings › Sound › Input."
+      : e.name === "NotAllowedError" ? "Microphone blocked — allow it in the address bar (🔒 › Microphone)."
+      : window.isSecureContext ? "Microphone error: " + e.message
+      : "Mic needs https or localhost — open via the SSH tunnel: http://localhost:7861", true);
+  }
+  const ctx = new AudioContext({sampleRate: 16000});                 // browser resamples the mic to 16 kHz
+  await ctx.audioWorklet.addModule(URL.createObjectURL(new Blob([WORKLET], {type: "text/javascript"})));
+  const src = ctx.createMediaStreamSource(stream);
+  const node = new AudioWorkletNode(ctx, "tap");
+  const analyser = ctx.createAnalyser(); analyser.fftSize = 1024;
+  src.connect(analyser); src.connect(node);
+  const proto = location.protocol === "https:" ? "wss" : "ws";
+  const ws = new WebSocket(`${proto}://${location.host}/ws/score?text=${encodeURIComponent($("text").value)}&lang=${lang}`);
+  ws.binaryType = "arraybuffer";
+  rec = {ctx, stream, ws, node, analyser, buf: [], bufLen: 0, silentSince: 0, spoke: false, complete: false, t0: performance.now()};
+
+  node.port.onmessage = e => {                                        // float32 128-sample frames
+    const f = e.data; rec.buf.push(f); rec.bufLen += f.length;
+    let sum = 0; for (const x of f) sum += x * x;
+    const loud = Math.sqrt(sum / f.length) > 0.02, now = performance.now();
+    if (loud) { rec.spoke = true; rec.silentSince = 0; } else if (!rec.silentSince) rec.silentSince = now;
+    if (rec.bufLen >= 4000 && ws.readyState === 1) flush();          // send every 250 ms
+    // auto-finish: whole sentence covered and 0.9 s of silence
+    if (rec.complete && rec.silentSince && now - rec.silentSince > 900) stop();
+  };
+  ws.onmessage = e => {
+    const m = JSON.parse(e.data);
+    if (m.type === "partial") { paintWords(m, false); rec && (rec.complete = !!m.complete); }
+    else if (m.type === "final") { paintFinal(m); idle("Tap to try again"); }
+    else if (m.type === "error") { idle(m.message, true); }
+  };
+  ws.onerror = () => idle("Connection to the Orin failed.", true);
+  ws.onclose = () => { if ($("speak").classList.contains("busy")) idle("Tap to speak"); };
+
+  layoutReset();
+  $("speak").classList.add("rec"); $("wave").classList.add("on");
+  status("Listening… read the sentence, then tap to finish");
+  drawWave();
+}
+function flush() {
+  const n = rec.bufLen, out = new Int16Array(n); let o = 0;
+  for (const f of rec.buf) for (const x of f) out[o++] = Math.max(-1, Math.min(1, x)) * 32767;
+  rec.buf = []; rec.bufLen = 0; rec.ws.send(out.buffer);
+}
+function stop() {
+  if (!rec) return;
+  const r = rec; rec = null;
+  cancelAnimationFrame(r.raf);
+  if (r.bufLen && r.ws.readyState === 1) { rec = r; flush(); rec = null; }
+  r.node.port.onmessage = null; r.stream.getTracks().forEach(t => t.stop()); r.ctx.close();
+  $("speak").classList.remove("rec"); $("speak").classList.add("busy"); $("wave").classList.remove("on");
+  if (r.ws.readyState === 1) { r.ws.send("end"); status("Scoring…"); }
+  else idle("Connection lost — tap to retry", true);
+}
+function idle(msg, err) { $("speak").classList.remove("rec", "busy"); $("wave").classList.remove("on"); status(msg, err); }
+function status(msg, err) { $("status").textContent = msg; $("status").classList.toggle("err", !!err); }
+function layoutReset() {
+  $("scores").innerHTML = ""; $("details").hidden = true;
+  words.forEach((_, i) => { const el = $("w" + i); el.className = "chip"; el.style.cssText = ""; el.querySelector(".s").innerHTML = ""; });
+}
+
+function drawWave() {
+  const c = $("wave"), g = c.getContext("2d"), data = new Uint8Array(rec.analyser.fftSize);
+  const loop = () => {
+    if (!rec) return;
+    rec.analyser.getByteTimeDomainData(data);
+    g.clearRect(0, 0, c.width, c.height);
+    g.lineWidth = 4; g.strokeStyle = "#ef4444"; g.lineCap = "round"; g.beginPath();
+    for (let i = 0; i < data.length; i += 8) {
+      const x = i / data.length * c.width, y = c.height / 2 + (data[i] - 128) / 128 * c.height * 1.6;
+      i ? g.lineTo(x, y) : g.moveTo(x, y);
+    }
+    g.stroke();
+    rec.raf = requestAnimationFrame(loop);
+  };
+  loop();
+}
+
+// ---------------------------------------------------------------- wiring
+$("pick").onchange = e => choose(+e.target.value);
+$("text").oninput = layoutWords;
+document.querySelectorAll("#lang button").forEach(b => b.onclick = () => setLang(b.dataset.l));
+$("speak").onclick = () => { if ($("speak").classList.contains("busy")) return; rec ? stop() : start(); };
+$("listen").onclick = async () => {
+  $("listen").disabled = true; $("listen").textContent = "🔊 Loading…";
+  try {
+    const r = await fetch("/api/tts", {method: "POST", headers: {"Content-Type": "application/json"},
+                                       body: JSON.stringify({text: $("text").value, lang})});
+    if (!r.ok) throw new Error((await r.json()).detail);
+    new Audio(URL.createObjectURL(await r.blob())).play();
+  } catch (e) { status(e.message, true); }
+  $("listen").disabled = false; $("listen").textContent = "🔊 Native example";
+};
+document.addEventListener("keydown", e => {                          // space bar = speak button
+  if (e.code === "Space" && document.activeElement.tagName !== "INPUT") { e.preventDefault(); $("speak").click(); }
+});
+loadSentences();
+</script>
+</body>
+</html>

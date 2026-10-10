@@ -1,0 +1,12 @@
+[
+  {"id": "en1", "lang": "en", "text": "Hello", "focus": "h, l, diphthong /oʊ/"},
+  {"id": "en2", "lang": "en", "text": "Thank you", "focus": "/θ/ (th), often said as s or t"},
+  {"id": "en3", "lang": "en", "text": "The cat is sleeping on the chair.", "focus": "/ð/, /æ/, /tʃ/"},
+  {"id": "en4", "lang": "en", "text": "Three little birds are singing in the tree.", "focus": "/θr/ cluster, /ɜː/, /ŋ/"},
+  {"id": "zh1", "lang": "zh", "text": "你好", "focus": "tone 3 + tone 3 sandhi"},
+  {"id": "zh2", "lang": "zh", "text": "我喜欢吃苹果。", "focus": "ch /tʂʰ/ (retroflex), q-less finals, tones"},
+  {"id": "zh3", "lang": "zh", "text": "小猫在睡觉。", "focus": "x /ɕ/, sh /ʂ/, j /tɕ/"},
+  {"id": "es1", "lang": "es", "text": "Hola", "focus": "silent h, pure vowels"},
+  {"id": "es2", "lang": "es", "text": "El perro corre rápido.", "focus": "trilled rr /r/ vs tap /ɾ/"},
+  {"id": "es3", "lang": "es", "text": "Me gusta comer manzanas rojas.", "focus": "soft g /ɣ/, j /x/, tap r"}
+]
