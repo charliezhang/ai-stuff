@@ -1,0 +1,7 @@
+data/*.pt
+data/*.bin
+runs/
+__pycache__/
+*.pyc
+.venv/
+*.log
