@@ -23,6 +23,9 @@ class ModelConfig:
     rope_frac: float = 1.0       # fraction of head dims that rotate (0.5 = slowrun "half-truncated")
     # step 10: regularization
     dropout: float = 0.1         # on each residual branch output (attn + MLP), train only
+    # extra ablation knobs
+    logit_softcap: float = 0.0   # >0: logits = cap * tanh(logits / cap) (slowrun / modded-nanogpt use 15)
+    bf16_residual: bool = False  # keep the residual stream in bf16 (halves its memory traffic)
     # step 9: MoE (0 = dense). Coarse Mixtral-style: each expert is a full-size MLP.
     n_experts: int = 0
     moe_top_k: int = 2

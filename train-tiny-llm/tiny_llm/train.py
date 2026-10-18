@@ -12,6 +12,7 @@ import torch.nn.functional as F
 from .config import PRESETS, ModelConfig
 from .data import TokenData, evaluate, token_byte_lengths
 from .model import GPT, MoE
+from .optim import Muon
 
 ORIN_BF16_PEAK = 42.5e12
 
@@ -23,14 +24,18 @@ class TrainConfig:
     train_tokens: float = 400e6      # 4 epochs over the 100M-token set
     batch_seqs: int = 32             # 32 x 2048 = 65k tokens/step
     micro_seqs: int = 8              # per forward pass; grad accumulation covers the rest
-    lr: float = 1.5e-3               # peak; to be set by the LR sweep
+    lr: float = 2e-3                 # peak AdamW LR (sweep winner)
     warmup_steps: int = 100
     warmdown_frac: float = 0.4       # linear decay to 0 over the last 40% (WSD schedule)
     weight_decay: float = 0.8        # decoupled: per-step shrink = lr * wd
+    optimizer: str = "adamw"         # adamw | muon (Muon on hidden matrices, AdamW on embeddings/head/gains)
+    muon_lr: float = 0.02
+    muon_wd: float = 0.08            # 0.02 * 0.08 = 1.6e-3/step: same decay timescale as AdamW 2e-3 * 0.8
     grad_clip: float = 1.0
     eval_every: int = 250
     eval_seqs: int = 512             # ~1M val tokens for periodic evals; full 10M at the end
     compile: bool = True
+    save_model: bool = True
     seed: int = 1337
 
 
@@ -49,11 +54,31 @@ def parse_overrides(argv):
     return tc, mc
 
 
-def lr_at(step, total, tc):
+def lr_mult(step, total, tc):
+    """WSD schedule as a multiplier on each param group's peak LR."""
     if step < tc.warmup_steps:
-        return tc.lr * (step + 1) / tc.warmup_steps
+        return (step + 1) / tc.warmup_steps
     decay_start = int(total * (1 - tc.warmdown_frac))
-    return tc.lr * min(1.0, (total - step) / max(1, total - decay_start))
+    return min(1.0, (total - step) / max(1, total - decay_start))
+
+
+def build_optimizers(model, tc):
+    # weight decay on matrices only; norms/gains are 1-D and shouldn't be pulled toward 0
+    named = list(model.named_parameters())
+    is_hidden_matrix = lambda n, p: p.dim() == 2 and n.startswith("blocks.") and "router" not in n
+    muon_params = [p for n, p in named if tc.optimizer == "muon" and is_hidden_matrix(n, p)]
+    muon_ids = {id(p) for p in muon_params}
+    decay = [p for n, p in named if p.dim() >= 2 and id(p) not in muon_ids]
+    no_decay = [p for n, p in named if p.dim() < 2]
+    opts = [torch.optim.AdamW([{"params": decay, "weight_decay": tc.weight_decay},
+                               {"params": no_decay, "weight_decay": 0.0}],
+                              lr=tc.lr, betas=(0.9, 0.95), eps=1e-10, fused=True)]
+    if muon_params:
+        opts.append(Muon(muon_params, lr=tc.muon_lr, weight_decay=tc.muon_wd))
+    for opt in opts:
+        for g in opt.param_groups:
+            g["peak_lr"] = g["lr"]
+    return opts
 
 
 def main():
@@ -73,12 +98,7 @@ def main():
     model = GPT(mc).cuda()
     fwd = torch.compile(model) if tc.compile else model
 
-    # weight decay on matrices only; norms/gains are 1-D and shouldn't be pulled toward 0
-    decay = [p for p in model.parameters() if p.dim() >= 2]
-    no_decay = [p for p in model.parameters() if p.dim() < 2]
-    opt = torch.optim.AdamW([{"params": decay, "weight_decay": tc.weight_decay},
-                             {"params": no_decay, "weight_decay": 0.0}],
-                            lr=tc.lr, betas=(0.9, 0.95), eps=1e-10, fused=True)
+    opts = build_optimizers(model, tc)
 
     accum = tc.batch_seqs // tc.micro_seqs
     tokens_per_step = tc.batch_seqs * mc.seq_len
@@ -104,9 +124,11 @@ def main():
             if final:
                 break
 
-        lr = lr_at(step, total_steps, tc)
-        for g in opt.param_groups:
-            g["lr"] = lr
+        mult = lr_mult(step, total_steps, tc)
+        for opt in opts:
+            for g in opt.param_groups:
+                g["lr"] = g["peak_lr"] * mult
+        lr = tc.lr * mult
         loss_sum = 0.0
         for _ in range(accum):
             x, y = next(it)
@@ -116,8 +138,9 @@ def main():
             loss.backward()
             loss_sum += loss.detach()
         gnorm = torch.nn.utils.clip_grad_norm_(model.parameters(), tc.grad_clip)
-        opt.step()
-        opt.zero_grad(set_to_none=True)
+        for opt in opts:
+            opt.step()
+        model.zero_grad(set_to_none=True)
         moe_imbalance = [m.update_bias() for m in model.modules() if isinstance(m, MoE)]
 
         if step % 10 == 0:
@@ -130,7 +153,8 @@ def main():
                  mem_gb=torch.cuda.max_memory_allocated() / 1e9,
                  **({"moe_max_over_mean": max(moe_imbalance)} if moe_imbalance else {}))
 
-    torch.save({"model": model.state_dict(), "mc": dataclasses.asdict(mc)}, f"{out_dir}/model.pt")
+    if tc.save_model:
+        torch.save({"model": model.state_dict(), "mc": dataclasses.asdict(mc)}, f"{out_dir}/model.pt")
 
 
 if __name__ == "__main__":

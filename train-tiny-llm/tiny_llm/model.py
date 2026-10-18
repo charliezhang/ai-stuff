@@ -181,8 +181,12 @@ class GPT(nn.Module):
         x = self.wte(idx)
         if self.wpe is not None:
             x = x + self.wpe(torch.arange(idx.size(1), device=idx.device))
+        if self.c.bf16_residual:                  # embedding is fp32; bf16 + bf16 branch adds then stay bf16
+            x = x.to(torch.bfloat16)
         rope = (self.rope_cos, self.rope_sin) if self.c.pos == "rope" else None
         for block in self.blocks:              # pos == "nope": causal mask is the only position signal
             x = block(x, rope)
         logits = self.lm_head(self.norm_f(x))
+        if self.c.logit_softcap:                  # smooth clamp to (-cap, cap): stops overconfident logits
+            logits = self.c.logit_softcap * torch.tanh(logits.float() / self.c.logit_softcap)
         return logits[..., : self.c.vocab_size]   # drop padding rows so they never get probability mass

@@ -1,0 +1,3 @@
+# Stage-1.5: do the individual winners stack? (50M tokens each; compare to ab_muon = 4.672)
+cb_muon_tied_drop0     optimizer=muon tie_embeddings=true dropout=0.0
+cb_muon_tied_drop0_qk  optimizer=muon tie_embeddings=true dropout=0.0 qk_norm=true

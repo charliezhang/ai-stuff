@@ -1,0 +1,15 @@
+# Stage-1 screening: one change vs. the base4ep config, 50M tokens each.
+# Format: <run name> <overrides...>   (common overrides are added by scripts/ablate.sh)
+ab_base        seed=1337
+ab_base_seed2  seed=7
+ab_dropout0    dropout=0.0
+ab_wd0.1       weight_decay=0.1
+ab_muon        optimizer=muon
+ab_qknorm_lr4  qk_norm=true lr=4e-3
+ab_relu2       activation=relu2
+ab_rope_half   rope_frac=0.5
+ab_deep12x256  n_layer=12 n_embd=256 n_head=4
+ab_tied        tie_embeddings=true
+ab_moe8        n_experts=8
+ab_softcap15   logit_softcap=15
+ab_bf16resid   bf16_residual=true
