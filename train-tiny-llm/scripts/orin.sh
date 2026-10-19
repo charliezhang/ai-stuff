@@ -4,6 +4,7 @@
 #   scripts/orin.sh run <cmd...>         # run a command in the training container
 #   scripts/orin.sh bg <name> <cmd...>   # detached run (survives ssh disconnect), log in runs/<name>.out
 #   scripts/orin.sh logs <name>          # follow a detached run
+#   scripts/orin.sh serve [ckpt=...]     # (re)start the model server + mikupad UI on port 8080
 #   scripts/orin.sh services stop|start  # free / restore GPU memory (vllm, tts, pron)
 set -euo pipefail
 
@@ -31,8 +32,14 @@ case "${1:-}" in
   logs)
     ssh "$HOST" "tail -f $REMOTE_DIR/runs/$2.out"
     ;;
+  serve)
+    shift
+    ssh "$HOST" "cd $REMOTE_DIR && docker rm -f tinyllm-serve >/dev/null 2>&1; docker run -d --name tinyllm-serve \
+      --restart unless-stopped --runtime nvidia --gpus all -p 8080:8080 -v \$PWD:/work -w /work \
+      -e PYTHONUNBUFFERED=1 --entrypoint '' $IMAGE python3 -m tiny_llm.serve $*"
+    ;;
   services)
     ssh "$HOST" "docker ${2:?stop|start} ${SERVICES[*]} && free -g | head -2"
     ;;
-  *) sed -n '2,7p' "$0"; exit 1 ;;
+  *) sed -n '2,8p' "$0"; exit 1 ;;
 esac

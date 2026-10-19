@@ -20,6 +20,21 @@ scripts/orin.sh services stop|start         # free / restore GPU memory (vllm, t
 Overrides are any `ModelConfig`/`TrainConfig` field, e.g. `lr=2e-3`, `n_experts=8`, `train_tokens=100e6`.
 Raw log: `orin:~/train-tiny-llm/runs/<name>.out`; metrics: `runs/<name>/log.jsonl`; checkpoint: `runs/<name>/model.pt`.
 
+## Interactive playground (mikupad)
+```bash
+scripts/orin.sh serve                          # runs runs/best4ep/model.pt; or: scripts/orin.sh serve ckpt=runs/base4ep/model.pt
+open http://orin.local:8080/mikupad            # new sessions default to this server (API: llama.cpp)
+ssh orin docker logs -f tinyllm-serve          # see each request the UI makes
+```
+`tiny_llm/serve.py` implements the llama.cpp server subset mikupad uses (`/tokenize`, `/detokenize`,
+`/completion` with `n_probs` + SSE streaming). Container `tinyllm-serve` restarts with the box and
+doesn't block training runs. UI is [mikupad](https://github.com/lmg-anon/mikupad) vendored unmodified (AGPL-3.0, `serve/`).
+
+- Hover any generated token → top-10 next-token probabilities; click one → regenerate from there with that token.
+- Max Predict Tokens = 1 → step one token at a time.
+- Prompt Preview (Tokens = 1) → live prediction of the next token while you type (500 ms debounce).
+- Turn **off** "Post-sampling probabilities" to see the model's raw distribution instead of the one after temperature/top-k/top-p/min-p.
+
 ## Layout
 ```
 tiny_llm/   config.py (ModelConfig + presets), model.py, data.py (loader + eval), train.py
