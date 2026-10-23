@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tiny TTS</title>
+<style>
+  :root {
+    --bg: #fafaf9; --fg: #1c1917; --muted: #78716c; --line: #e7e5e4;
+    --wave: #a8a29e; --played: #1c1917; --accent: #1c1917; --accent-fg: #fafaf9; --err: #b91c1c;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0c0a09; --fg: #e7e5e4; --muted: #a8a29e; --line: #292524;
+      --wave: #57534e; --played: #e7e5e4; --accent: #e7e5e4; --accent-fg: #0c0a09; --err: #f87171;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--fg);
+    font: 15px/1.5 ui-sans-serif, -apple-system, system-ui, sans-serif;
+  }
+  main { max-width: 680px; margin: 0 auto; padding: 56px 16px; }
+  h1 { font-size: 15px; font-weight: 600; margin: 0; }
+  .sub { color: var(--muted); font-size: 13px; margin: 2px 0 28px; font-variant-numeric: tabular-nums; }
+  textarea {
+    width: 100%; min-height: 110px; resize: vertical; padding: 12px 14px;
+    font: inherit; color: inherit; background: transparent;
+    border: 1px solid var(--line); border-radius: 8px; outline: none;
+  }
+  textarea:focus { border-color: var(--muted); }
+  .row { display: flex; gap: 10px; align-items: center; margin-top: 12px; }
+  select, button {
+    font: inherit; font-size: 14px; color: inherit; height: 36px; border-radius: 8px;
+    border: 1px solid var(--line); background: transparent; padding: 0 12px;
+  }
+  button { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); cursor: pointer; }
+  button:disabled { opacity: .45; cursor: default; }
+  .hint { color: var(--muted); font-size: 12px; margin-left: auto; }
+  .wave { position: relative; margin-top: 32px; height: 96px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); cursor: pointer; }
+  canvas { display: block; width: 100%; height: 100%; }
+  .empty { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); font-size: 13px; pointer-events: none; }
+  .empty[hidden] { display: none; }
+  .metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px 12px; margin-top: 24px; }
+  .m b { display: block; font-size: 20px; font-weight: 500; font-variant-numeric: tabular-nums; }
+  .m span { color: var(--muted); font-size: 12px; }
+  .err { color: var(--err); font-size: 13px; margin-top: 12px; min-height: 1em; }
+  @media (max-width: 480px) { .metrics { grid-template-columns: repeat(2, 1fr); } .hint { display: none; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>Tiny TTS</h1>
+  <div class="sub" id="model">loading…</div>
+
+  <textarea id="text" placeholder="Type something to say…">Hello! This voice comes from a tiny model trained overnight on a Jetson Orin.</textarea>
+  <div class="row">
+    <select id="voice" aria-label="Voice"></select>
+    <button id="speak">Speak</button>
+    <span class="hint">⌘ Enter</span>
+  </div>
+  <div class="err" id="err"></div>
+
+  <div class="wave" id="wave" title="Click to replay from here">
+    <canvas id="canvas"></canvas>
+    <div class="empty" id="empty">waveform appears here</div>
+  </div>
+
+  <div class="metrics">
+    <div class="m"><b id="m-first">–</b><span>first audio chunk</span></div>
+    <div class="m"><b id="m-gen">–</b><span>generation</span></div>
+    <div class="m"><b id="m-rtf">–</b><span>faster than real time</span></div>
+    <div class="m"><b id="m-play">–</b><span>click → playback</span></div>
+    <div class="m"><b id="m-net">–</b><span>network + decode</span></div>
+    <div class="m"><b id="m-dur">–</b><span>audio length</span></div>
+  </div>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+const ctx = new (window.AudioContext || window.webkitAudioContext)();
+let buffer = null, source = null, startedAt = 0, offset = 0, peaks = null, raf = 0;
+
+const ms = (v) => v == null ? "–" : v >= 1000 ? (v / 1000).toFixed(2) + " s" : Math.round(v) + " ms";
+
+fetch("/api/info").then((r) => r.json()).then((info) => {
+  $("model").textContent = `${info.model} · ${info.checkpoint} · ${info.params_m}M params · ${info.device}`;
+  for (const v of info.voices) $("voice").add(new Option(v, v, v === info.default_voice, v === info.default_voice));
+}).catch(() => { $("model").textContent = "server unreachable"; });
+
+function computePeaks(width) {
+  const data = buffer.getChannelData(0), step = data.length / width, out = new Float32Array(width * 2);
+  for (let x = 0; x < width; x++) {
+    let lo = 1, hi = -1;
+    for (let i = Math.floor(x * step), end = Math.floor((x + 1) * step); i < end; i++) {
+      const s = data[i]; if (s < lo) lo = s; if (s > hi) hi = s;
+    }
+    out[2 * x] = lo > hi ? 0 : lo; out[2 * x + 1] = lo > hi ? 0 : hi;
+  }
+  let peak = 0;  // scale to the loudest sample so quiet clips still fill the strip
+  for (const v of out) peak = Math.max(peak, Math.abs(v));
+  if (peak > 0) for (let i = 0; i < out.length; i++) out[i] /= peak;
+  return out;
+}
+
+function draw(progress) {
+  const c = $("canvas"), dpr = window.devicePixelRatio || 1;
+  const w = c.clientWidth, h = c.clientHeight;
+  if (c.width !== w * dpr) { c.width = w * dpr; c.height = h * dpr; peaks = null; }
+  const g = c.getContext("2d");
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.clearRect(0, 0, w, h);
+  if (!buffer) return;
+  if (!peaks) peaks = computePeaks(w);
+  const css = getComputedStyle(document.documentElement), mid = h / 2;
+  const split = Math.round(progress * w);
+  for (let x = 0; x < w; x++) {
+    g.fillStyle = x < split ? css.getPropertyValue("--played") : css.getPropertyValue("--wave");
+    const lo = peaks[2 * x] * mid * 0.95, hi = peaks[2 * x + 1] * mid * 0.95;
+    g.fillRect(x, mid - hi, 1, Math.max(1, hi - lo));
+  }
+}
+
+function tick() {
+  if (!source) return;
+  const p = Math.min(1, (offset + ctx.currentTime - startedAt) / buffer.duration);
+  draw(p);
+  if (p < 1) raf = requestAnimationFrame(tick);
+}
+
+function play(from = 0) {
+  if (source) { source.onended = null; source.stop(); }
+  cancelAnimationFrame(raf);
+  source = ctx.createBufferSource();
+  source.buffer = buffer;
+  source.connect(ctx.destination);
+  source.onended = () => { source = null; draw(1); };
+  offset = from; startedAt = ctx.currentTime;
+  source.start(0, from);
+  tick();
+}
+
+async function speak() {
+  const text = $("text").value.trim();
+  if (!text) return;
+  $("speak").disabled = true; $("err").textContent = "";
+  const t0 = performance.now();
+  ctx.resume();
+  try {
+    const r = await fetch("/api/tts", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text, voice: $("voice").value }),
+    });
+    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || r.statusText);
+    const m = JSON.parse(r.headers.get("X-TTS-Metrics") || "{}");
+    buffer = await ctx.decodeAudioData(await r.arrayBuffer());
+    peaks = null; $("empty").hidden = true;
+    play(0);
+    const played = performance.now() - t0;
+    $("m-first").textContent = ms(m.first_chunk_ms + (m.voice_encode_ms || 0));
+    $("m-gen").textContent = ms(m.generate_ms);
+    $("m-rtf").textContent = m.rtf ? m.rtf + "×" : "–";
+    $("m-play").textContent = ms(played);
+    $("m-net").textContent = ms(Math.max(0, played - m.server_ms));
+    $("m-dur").textContent = ms(m.audio_ms);
+    if (m.voice_encode_ms) $("err").textContent = `first use of this voice: ${ms(m.voice_encode_ms)} to encode it (cached now)`;
+  } catch (e) {
+    $("err").textContent = "Error: " + e.message;
+  } finally {
+    $("speak").disabled = false;
+  }
+}
+
+$("speak").onclick = speak;
+$("text").addEventListener("keydown", (e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); speak(); } });
+$("wave").onclick = (e) => {
+  if (!buffer) return;
+  const r = $("wave").getBoundingClientRect();
+  ctx.resume(); play(((e.clientX - r.left) / r.width) * buffer.duration);
+};
+window.addEventListener("resize", () => { peaks = null; draw(source ? 0 : 1); });
+draw(0);
+</script>
+</body>
+</html>
